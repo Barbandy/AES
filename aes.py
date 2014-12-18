@@ -1,195 +1,211 @@
 ﻿import sys
-import re
+import argparse
 
 nb = 4  # число столбцов(32-х битных слов), составляющих State
 nr = 10 # число раундов, которое является функцией Nk и Nb 
 nk = 4  # число 32-х битных слов, составляющих шифроключ
 
-	
+
 def printUsage():
-    print"AES\n"
-    print"Enter the input parameters:\n"
-    print"\n<name of program> <file_in> <file_key> <file_out> <c / d>\n"
+    print('The Key must be 16 symbols')
+    print('<name of program> <file_in> <file_key> <file_out> <c / d>')
     sys.exit(-1)
+
 
 # XOR ключа раунда с формой	
 def addRoundKey(state, RoundKeys, rnd):
-	for i in range(4):
-		for j in range(4):
-			state[i][j] ^= RoundKeys[i][j+rnd*4]
-	return state
+    for i in range(4):
+        for j in range(4):
+            state[i][j] ^= RoundKeys[i][j+rnd*4]
+    return state
+
 
 # Подстановка байтов с помощью таблицы подстановок	
 def subBytes(state):
-	for i in range(4):
-		for j in range(4):
-			state[i][j] = Sbox[state[i][j]]
-	return state
-	
-	
+    for i in range(4):
+        for j in range(4):
+            state[i][j] = Sbox[state[i][j]]
+    return state
+
+
 def invSubBytes(state):
-	for i in range(4):
-		for j in range(4):
-			state[i][j] = InvSbox[state[i][j]]
-	return state
-	
+    for i in range(4):
+        for j in range(4):
+            state[i][j] = InvSbox[state[i][j]]
+    return state
+
+
 # Циклический сдвиг строк в форме на различные величины	
 def shiftRows(state):
     for i in range(4):
         state[i] = state[i][i:] + state[i][0:i]
     return state
-	
-	
+
+
 def invShiftRows(state):
     for i in range(4):
         state[i] = state[i][-i:] + state[i][:-i]
     return state
-	
+
+
 # Умножение в поле Галуа	
 def GMul(a, b): 
-	p = 0
-	for counter in range(8): 
-		if b & 1: 
-			p ^= a
-		hi_bit_set = a & 0x80
-		a <<= 1
-		a &= 0xff
-		if hi_bit_set:
-			a ^= 0x1b	
-		b >>= 1;
-	return p
+    p = 0
+    for counter in range(8):
+        if b & 1:
+            p ^= a
+        hi_bit_set = a & 0x80
+        a <<= 1
+        a &= 0xff
+        if hi_bit_set:
+            a ^= 0x1b
+        b >>= 1;
+    return p
+
 
 # Смешивание данных внутри каждого столбца формы	
 def MixColumns(state):
-	"""http://en.wikipedia.org/wiki/Rijndael_mix_columns"""
-	tmp = [0] * 4
-	for s in range(4):
-		tmp[s] = [0] * 4
-	for i in range(4): 
-		tmp[0][i] = GMul(0x02, state[0][i]) ^ GMul(0x03, state[1][i]) ^ state[2][i] ^ state[3][i]
-		tmp[1][i] = state[0][i] ^ GMul(0x02, state[1][i]) ^ GMul(0x03, state[2][i]) ^ state[3][i]
-		tmp[2][i] = state[0][i] ^ state[1][i] ^ GMul(0x02, state[2][i]) ^ GMul(0x03, state[3][i])
-		tmp[3][i] = GMul(0x03, state[0][i]) ^ state[1][i] ^ state[2][i] ^ GMul(0x02, state[3][i])	
-	return tmp
-			
-			
-def InvMixColumns(state):				
-	tmp = [0] * 4
-	for s in range(4):
-		tmp[s] = [0] * 4
-	for i in range(4): 
-		tmp[0][i] = GMul(0x0e, state[0][i]) ^ GMul(0x0b, state[1][i]) ^ GMul(0x0d, state[2][i]) ^ GMul(0x09, state[3][i])
-		tmp[1][i] = GMul(0x09, state[0][i]) ^ GMul(0x0e, state[1][i]) ^ GMul(0x0b, state[2][i]) ^ GMul(0x0d, state[3][i])
-		tmp[2][i] = GMul(0x0d, state[0][i]) ^ GMul(0x09, state[1][i]) ^ GMul(0x0e, state[2][i]) ^ GMul(0x0b, state[3][i])
-		tmp[3][i] = GMul(0x0b, state[0][i]) ^ GMul(0x0d, state[1][i]) ^ GMul(0x09, state[2][i]) ^ GMul(0x0e, state[3][i])	
-	return tmp
+    """http://en.wikipedia.org/wiki/Rijndael_mix_columns"""
+    tmp = [0] * 4
+    for s in range(4):
+        tmp[s] = [0] * 4
+    for i in range(4):
+        tmp[0][i] = GMul(0x02, state[0][i]) ^ GMul(0x03, state[1][i]) ^ state[2][i] ^ state[3][i]
+        tmp[1][i] = state[0][i] ^ GMul(0x02, state[1][i]) ^ GMul(0x03, state[2][i]) ^ state[3][i]
+        tmp[2][i] = state[0][i] ^ state[1][i] ^ GMul(0x02, state[2][i]) ^ GMul(0x03, state[3][i])
+        tmp[3][i] = GMul(0x03, state[0][i]) ^ state[1][i] ^ state[2][i] ^ GMul(0x02, state[3][i])
+    return tmp
 
-	
+
+def InvMixColumns(state):				
+    tmp = [0] * 4
+    for s in range(4):
+        tmp[s] = [0] * 4
+    for i in range(4):
+        tmp[0][i] = GMul(0x0e, state[0][i]) ^ GMul(0x0b, state[1][i]) ^ GMul(0x0d, state[2][i]) ^ GMul(0x09, state[3][i])
+        tmp[1][i] = GMul(0x09, state[0][i]) ^ GMul(0x0e, state[1][i]) ^ GMul(0x0b, state[2][i]) ^ GMul(0x0d, state[3][i])
+        tmp[2][i] = GMul(0x0d, state[0][i]) ^ GMul(0x09, state[1][i]) ^ GMul(0x0e, state[2][i]) ^ GMul(0x0b, state[3][i])
+        tmp[3][i] = GMul(0x0b, state[0][i]) ^ GMul(0x0d, state[1][i]) ^ GMul(0x09, state[2][i]) ^ GMul(0x0e, state[3][i])
+    return tmp
+
+
 def Xor(state,tmp, n):
-	for i in range(n):
-		state[i] = state[i] ^ tmp[i]
-	return state
-	
+    for i in range(n):
+        state[i] = state[i] ^ tmp[i]
+    return state
+
+
 # получение ключей для всех раундов	
 def KeyExpansion(key_symbols):
-	key = bytearray(key_symbols)
-	if len(key) < 4 * nk:
-		for i in range(4 * nk - len(key)):
-			key.append(0x01)
-	key_schedule = [[] for i in range(4)]
-	for r in range(4):
-		for c in range(nk):
-			key_schedule[r].append(key[r + 4 * c])
-	for col in range(nk, nb * (nr + 1)):  
-		if col % nk == 0:
-			tmp = [key_schedule[row][col - 1] for row in range(1, 4)]
-			tmp.append(key_schedule[0][col - 1])
-			
-			for j in range(len(tmp)):
-				sbox_row = tmp[j] // 0x10
-				sbox_col = tmp[j] % 0x10
-				sbox_elem = Sbox[16 * sbox_row + sbox_col]
-				tmp[j] = sbox_elem
+    key = bytearray(key_symbols)
+    if len(key) < 4 * nk:
+        for i in range(4 * nk - len(key)):
+            key.append(0x01)
+    key_schedule = [[] for i in range(4)]
+    for r in range(4):
+        for c in range(nk):
+            key_schedule[r].append(key[r + 4 * c])
+    for col in range(nk, nb * (nr + 1)):
+        if col % nk == 0:
+            tmp = [key_schedule[row][col - 1] for row in range(1, 4)]
+            tmp.append(key_schedule[0][col - 1])
 
-			for row in range(4):
-				s = (key_schedule[row][col - 4]) ^ (tmp[row]) ^ (Rcon[row][int(col / nk - 1)])
-				key_schedule[row].append(s)
+            for j in range(len(tmp)):
+                sbox_row = tmp[j] // 0x10
+                sbox_col = tmp[j] % 0x10
+                sbox_elem = Sbox[16 * sbox_row + sbox_col]
+                tmp[j] = sbox_elem
 
-		else:
-			for row in range(4):
-				s = key_schedule[row][col - 4] ^ key_schedule[row][col - 1]
-				key_schedule[row].append(s)
-	return key_schedule
+            for row in range(4):
+                s = (key_schedule[row][col - 4]) ^ (tmp[row]) ^ (Rcon[row][int(col / nk - 1)])
+                key_schedule[row].append(s)
+
+        else:
+            for row in range(4):
+                s = key_schedule[row][col - 4] ^ key_schedule[row][col - 1]
+                key_schedule[row].append(s)
+    return key_schedule
+
 
 #  шифруем блок данных
 def encrypt(input_bytes, key):
-	input_bytes = bytearray(input_bytes)
-	state = []
-	for i in range(4):
-		state.append(input_bytes[i::nb])
+    input_bytes = bytearray(input_bytes)
+    state = []
+    for i in range(4):
+        state.append(input_bytes[i::nb])
 
-	key_schedule = KeyExpansion(key)
-	state = addRoundKey(state, key_schedule, 0)
-	
-	for rnd in range(0, nr-1):
-		state = subBytes(state)
-		state = shiftRows(state)
-		state = MixColumns(state)
-		state = addRoundKey(state, key_schedule, rnd+1 )
+    key_schedule = KeyExpansion(key)
+    state = addRoundKey(state, key_schedule, 0)
 
-	state = subBytes(state)
-	state = shiftRows(state)
-	state = addRoundKey(state, key_schedule, 10)
+    for rnd in range(0, nr-1):
+        state = subBytes(state)
+        state = shiftRows(state)
+        state = MixColumns(state)
+        state = addRoundKey(state, key_schedule, rnd+1 )
 
-	result = []
-	for i in range(nb):
-		for j in range(4):
-			result.append(state[j][i])
-	result = [chr(x) for x in result]
-	return result
-	
+    state = subBytes(state)
+    state = shiftRows(state)
+    state = addRoundKey(state, key_schedule, 10)
+
+    result = []
+    for i in range(nb):
+        for j in range(4):
+            result.append(state[j][i])
+    result = [chr(x) for x in result]
+    return result
+
 
 def decrypt(input_bytes, key):
-	input_bytes = bytearray(input_bytes)
-	state = []
-	for i in range(4):
-		state.append(input_bytes[i::nb])
-		
-	key_schedule = KeyExpansion(key)
-	state = addRoundKey(state, key_schedule, 10)
-	
-	for rnd in reversed(range(1, nr)):
-		state = invShiftRows(state)
-		state = invSubBytes(state)
-		state = addRoundKey(state, key_schedule, rnd )
-		state = InvMixColumns(state)
+    input_bytes = bytearray(input_bytes)
+    state = []
+    for i in range(4):
+        state.append(input_bytes[i::nb])
 
-	state = invShiftRows(state)
-	state = invSubBytes(state)
-	state = addRoundKey(state, key_schedule, 0)
+    key_schedule = KeyExpansion(key)
+    state = addRoundKey(state, key_schedule, 10)
 
-	result = []
-	for i in range(nb):
-		for j in range(4):
-			result.append(state[j][i])
-	result = [chr(x) for x in result]
-	return result
+    for rnd in reversed(range(1, nr)):
+        state = invShiftRows(state)
+        state = invSubBytes(state)
+        state = addRoundKey(state, key_schedule, rnd )
+        state = InvMixColumns(state)
+
+    state = invShiftRows(state)
+    state = invSubBytes(state)
+    state = addRoundKey(state, key_schedule, 0)
+
+    result = []
+    for i in range(nb):
+        for j in range(4):
+            result.append(state[j][i])
+    result = [chr(x) for x in result]
+    return result
+
 
 def write_file(fname, code):
     try:
         with open(fname, 'wb') as f:
 		    f.write(''.join(code))
     except IOError:
-        exit("No such file or directory")
-		
+        exit('No such file or directory ' + fname)
+
+
 def readFile(fname):
     try:
         with open(fname, 'rb') as f:
             text = f.read()
     except IOError:
-        exit("No such file or directory")
+        exit('No such file or directory ' + fname)
     return text	
 
+	
+def getArgs():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('inFile')
+    parser.add_argument('keyFile')
+    parser.add_argument('outFile')
+    parser.add_argument('cryptOrDecrypt', choices=['c', 'd'])
+    return parser.parse_args()	
 	
 	
 Sbox = [0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76, 
@@ -236,52 +252,49 @@ Rcon = [
 	
 	
 def main():
-	print"AES"
-	file_in = sys.argv[1]
-	file_key = sys.argv[2]
-	file_out = sys.argv[3]
-	action = sys.argv[4]
+    print('AES')
+    if len(sys.argv) < 4 or len(sys.argv) > 5:
+        printUsage()
+    args = getArgs()
+    data = readFile(args.inFile)
+    key = readFile(args.keyFile)
+    if len(key) > 16:
+        print('Too long Key')
+        printUsage()
 
-	if len(sys.argv) < 4 or len(sys.argv) > 5:
-		printUsage()
-		
-	data = readFile(file_in)	
-	key = readFile(file_key)
-	
-	if action == 'c':	
-	# кодирование
-		crypted_data = []
-		temp = []
-		for byte in data:
-			temp.append(byte)
-			if len(temp) == 16:
-				crypted_part = encrypt(temp, key)
-				crypted_data.extend(crypted_part)
-				del temp[:]
-			
-		else:
-			#crypted_data.append(temp)
-			if 0 < len(temp) < 16:
-				empty_spaces = 16 - len(temp)
-				for i in range(empty_spaces - 1):
-					temp.append(0)
-				temp.append(1)
-				crypt_part = encrypt(temp, key)
-				crypted_data.extend(crypt_part)	
-		write_file(file_out, crypted_data)
+    if args.cryptOrDecrypt == 'c':
+# кодирование
+        crypted_data = []
+        temp = []
+        for byte in data:
+            temp.append(byte)
+            if len(temp) == 16:
+                crypted_part = encrypt(temp, key)
+                crypted_data.extend(crypted_part)
+                del temp[:]
 
-	else:
-	# декодирование		
-		decrypted_data = []
-		temp = []
-		for byte in data:
-			temp.append(byte)
-			if len(temp) == 16:
-				decrypted_part = decrypt(temp, key)
-				decrypted_data.extend(decrypted_part)
-				del temp[:] 
+        else:
+            #crypted_data.append(temp)
+            if 0 < len(temp) < 16:
+                empty_spaces = 16 - len(temp)
+                for i in range(empty_spaces - 1):
+                    temp.append(0)
+                temp.append(1)
+                crypt_part = encrypt(temp, key)
+                crypted_data.extend(crypt_part)
+        write_file(args.outFile, crypted_data)
+    else:
+# декодирование
+        decrypted_data = []
+        temp = []
+        for byte in data:
+            temp.append(byte)
+            if len(temp) == 16:
+                decrypted_part = decrypt(temp, key)
+                decrypted_data.extend(decrypted_part)
+                del temp[:]
 
-		decrypted_data = decrypted_data[:-2]
-		write_file(file_out, decrypted_data)
+        decrypted_data = decrypted_data[:-2]
+        write_file(args.outFile, decrypted_data)
 if __name__ == "__main__":
     main()
